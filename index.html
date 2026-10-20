@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tickle Game Sederhana</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #111;
+            margin: 0;
+            font-family: sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+        
+        /* Layar Mulai untuk memicu Audio */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #start-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            cursor: pointer;
+            background: #ff6b81;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        #game-container {
+            position: relative;
+            width: 600px; 
+            max-width: 100%;
+            display: none; 
+        }
+        #character-img {
+            width: 100%;
+            display: block;
+            pointer-events: none; 
+        }
+
+        /* --- PENGATURAN HITBOX --- */
+        .hitbox {
+            position: absolute;
+            cursor: pointer;
+            z-index: 10;
+            
+            /* TIPS DEBUGGING: Hapus tanda /* dan */ di bawah ini untuk melihat area sentuhnya! */
+            /* border: 2px dashed red; background: rgba(255, 0, 0, 0.3); */
+        }
+
+        /* Posisi Ketiak (Sudah digeser agar tidak kena kepala) */
+        #hitbox-armpit {
+            top: 42%;  /* Diturunkan dari 25% */
+            left: 76%; /* Digeser ke kanan dari 65% */
+            width: 12%;
+            height: 12%;
+            border-radius: 50%;
+        }
+
+        /* Posisi Perut */
+        #hitbox-belly {
+            top: 55%;
+            left: 55%;
+            width: 16%;
+            height: 14%;
+            border-radius: 50%;
+            transform: rotate(-20deg); /* Dimiringkan sedikit mengikuti arah tubuh */
+        }
+
+        /* Posisi Telapak Kaki */
+        #hitbox-feet {
+            top: 82%;
+            left: 10%;
+            width: 18%;
+            height: 15%;
+            transform: rotate(-30deg);
+        }
+
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ff6b81;
+            z-index: 20;
+        }
+        progress {
+            width: 100%;
+            height: 15px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h2>Siap Bermain?</h2>
+    <p>Gunakan kursor atau usap layar di area sensitif!</p>
+    <button id="start-btn">Mulai Game</button>
+</div>
+
+<div id="game-container">
+    <div id="ui-panel">
+        <div>Target: <span id="status-text" style="color: #4cd137;">Aman</span></div>
+        <div style="margin-top: 10px; font-size: 12px;">Intensitas:</div>
+        <progress id="tickle-meter" value="0" max="100"></progress>
+    </div>
+
+    <!-- Gambar Utama -->
+    <img id="character-img" src="Base.jpeg" alt="Character">
+
+    <!-- Area Hitbox -->
+    <div class="hitbox" id="hitbox-armpit" data-part="armpit"></div>
+    <div class="hitbox" id="hitbox-belly" data-part="belly"></div>
+    <div class="hitbox" id="hitbox-feet" data-part="feet"></div>
+</div>
+
+<audio id="bgm" src="bgm.mp3" loop></audio>
+<audio id="sfx-laugh" src="laugh.mp3"></audio>
+
+<script>
+    const startScreen = document.getElementById('start-screen');
+    const startBtn = document.getElementById('start-btn');
+    const gameContainer = document.getElementById('game-container');
+    const imgElement = document.getElementById('character-img');
+    const tickleMeter = document.getElementById('tickle-meter');
+    const statusText = document.getElementById('status-text');
+    const hitboxes = document.querySelectorAll('.hitbox');
+    
+    const bgm = document.getElementById('bgm');
+    const sfxLaugh = document.getElementById('sfx-laugh');
+
+    const imgNormal = 'Base.jpeg';
+    const images = {
+        armpit: 'Ticklearmpit.png',
+        belly: 'Ticklebelly.png',
+        feet: 'Ticklefeet.png' /* Typo sudah diperbaiki! */
+    };
+
+    let intensity = 0;
+    const maxIntensity = 100;
+    const threshold = 50; 
+    let activePart = null; 
+
+    startBtn.addEventListener('click', () => {
+        startScreen.style.display = 'none';
+        gameContainer.style.display = 'block';
+        
+        bgm.volume = 0.3;
+        bgm.play().catch(e => console.log("Audio diblokir browser", e));
+    });
+
+    function applyTickle(part) {
+        intensity += 6; 
+        if (intensity > maxIntensity) intensity = maxIntensity;
+        activePart = part;
+        updateGame();
+    }
+
+    hitboxes.forEach(box => {
+        const partName = box.getAttribute('data-part');
+        box.addEventListener('mousemove', () => applyTickle(partName));
+        box.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            applyTickle(partName);
+        });
+    });
+
+    setInterval(() => {
+        if (intensity > 0) {
+            intensity -= 3; 
+            if (intensity < 0) intensity = 0;
+            updateGame();
+        }
+    }, 100);
+
+    function updateGame() {
+        tickleMeter.value = intensity;
+
+        if (intensity >= threshold && imgElement.src.indexOf(images[activePart]) === -1) {
+            imgElement.src = images[activePart];
+            statusText.innerText = "Kegelian (" + activePart + ")!";
+            statusText.style.color = "#ff6b81";
+            
+            if (sfxLaugh.paused) {
+                sfxLaugh.volume = 0.8;
+                sfxLaugh.currentTime = 0;
+                sfxLaugh.play();
+            }
+        } 
+        else if (intensity < threshold && imgElement.src.indexOf(imgNormal) === -1) {
+            imgElement.src = imgNormal;
+            statusText.innerText = "Aman";
+            statusText.style.color = "#4cd137";
+            
+            sfxLaugh.pause();
+        }
+    }
+</script>
+
+</body>
+</html>
