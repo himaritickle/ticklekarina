@@ -15,9 +15,10 @@
             font-family: sans-serif;
             color: white;
             overflow: hidden;
+            /* Sembunyikan kursor bawaan di seluruh halaman */
+            cursor: none; 
         }
         
-        /* Layar Mulai untuk memicu Audio */
         #start-screen {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -27,6 +28,7 @@
             justify-content: center;
             align-items: center;
             z-index: 100;
+            cursor: auto; /* Kursor normal untuk tombol mulai */
         }
         #start-btn {
             padding: 15px 30px;
@@ -44,6 +46,7 @@
             width: 600px; 
             max-width: 100%;
             display: none; 
+            cursor: none; /* Pastikan area game tidak ada kursor bawaan */
         }
         #character-img {
             width: 100%;
@@ -51,43 +54,15 @@
             pointer-events: none; 
         }
 
-        /* --- PENGATURAN HITBOX --- */
         .hitbox {
             position: absolute;
-            cursor: pointer;
+            cursor: none; /* Sembunyikan kursor di area hitbox */
             z-index: 10;
-            
-            /* TIPS DEBUGGING: Hapus tanda /* dan */ di bawah ini untuk melihat area sentuhnya! */
-            /* border: 2px dashed red; background: rgba(255, 0, 0, 0.3); */
         }
 
-        /* Posisi Ketiak (Sudah digeser agar tidak kena kepala) */
-        #hitbox-armpit {
-            top: 42%;  /* Diturunkan dari 25% */
-            left: 76%; /* Digeser ke kanan dari 65% */
-            width: 12%;
-            height: 12%;
-            border-radius: 50%;
-        }
-
-        /* Posisi Perut */
-        #hitbox-belly {
-            top: 55%;
-            left: 55%;
-            width: 16%;
-            height: 14%;
-            border-radius: 50%;
-            transform: rotate(-20deg); /* Dimiringkan sedikit mengikuti arah tubuh */
-        }
-
-        /* Posisi Telapak Kaki */
-        #hitbox-feet {
-            top: 82%;
-            left: 10%;
-            width: 18%;
-            height: 15%;
-            transform: rotate(-30deg);
-        }
+        #hitbox-armpit { top: 42%; left: 76%; width: 12%; height: 12%; border-radius: 50%; }
+        #hitbox-belly { top: 55%; left: 55%; width: 16%; height: 14%; border-radius: 50%; transform: rotate(-20deg); }
+        #hitbox-feet { top: 82%; left: 10%; width: 18%; height: 15%; transform: rotate(-30deg); }
 
         #ui-panel {
             position: absolute;
@@ -99,18 +74,61 @@
             border: 1px solid #ff6b81;
             z-index: 20;
         }
-        progress {
-            width: 100%;
-            height: 15px;
-            margin-top: 5px;
+
+        #tool-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ff6b81;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+        }
+        .tool-btn {
+            background: #333;
+            color: white;
+            border: 2px solid transparent;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .tool-btn:hover { background: #444; }
+        .tool-btn.active { border-color: #ff6b81; background: #552233; }
+
+        progress { width: 100%; height: 15px; margin-top: 5px; }
+
+        /* --- KURSOR KUSTOM (TOOLS) --- */
+        #custom-cursor {
+            position: fixed;
+            top: -100px; /* Sembunyikan di luar layar saat awal */
+            left: -100px;
+            font-size: 45px; /* Ukuran ikon alat */
+            pointer-events: none; /* PENTING: Agar tidak menghalangi klik hitbox */
+            z-index: 9999;
+            transform: translate(-20%, -20%); /* Menyesuaikan agar ujung ikon pas dengan titik sentuh */
+            filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));
+            display: none; /* Sembunyikan sebelum game dimulai */
         }
     </style>
 </head>
 <body>
 
+<!-- Elemen Kursor Kustom yang akan mengikuti Mouse/Jari -->
+<div id="custom-cursor">✋</div>
+
 <div id="start-screen">
     <h2>Siap Bermain?</h2>
-    <p>Gunakan kursor atau usap layar di area sensitif!</p>
+    <p>Pilih alatmu dan gunakan kursor di area sensitif!</p>
     <button id="start-btn">Mulai Game</button>
 </div>
 
@@ -121,10 +139,16 @@
         <progress id="tickle-meter" value="0" max="100"></progress>
     </div>
 
-    <!-- Gambar Utama -->
+    <!-- Tambahkan data-icon untuk mengganti visual kursor -->
+    <div id="tool-panel">
+        <div style="font-size: 14px; margin-bottom: 5px; font-weight: bold;">Pilih Alat:</div>
+        <button class="tool-btn active" data-multiplier="1" data-icon="✋">✋ Tangan</button>
+        <button class="tool-btn" data-multiplier="1.5" data-icon="🪶">🪶 Bulu</button>
+        <button class="tool-btn" data-multiplier="2.5" data-icon="🖌️">🖌️ Kuas</button>
+    </div>
+
     <img id="character-img" src="Base.jpeg" alt="Character">
 
-    <!-- Area Hitbox -->
     <div class="hitbox" id="hitbox-armpit" data-part="armpit"></div>
     <div class="hitbox" id="hitbox-belly" data-part="belly"></div>
     <div class="hitbox" id="hitbox-feet" data-part="feet"></div>
@@ -141,6 +165,8 @@
     const tickleMeter = document.getElementById('tickle-meter');
     const statusText = document.getElementById('status-text');
     const hitboxes = document.querySelectorAll('.hitbox');
+    const toolBtns = document.querySelectorAll('.tool-btn');
+    const customCursor = document.getElementById('custom-cursor');
     
     const bgm = document.getElementById('bgm');
     const sfxLaugh = document.getElementById('sfx-laugh');
@@ -149,24 +175,60 @@
     const images = {
         armpit: 'Ticklearmpit.png',
         belly: 'Ticklebelly.png',
-        feet: 'Ticklefeet.png' /* Typo sudah diperbaiki! */
+        feet: 'Ticklefeet.png'
     };
 
     let intensity = 0;
     const maxIntensity = 100;
     const threshold = 50; 
     let activePart = null; 
+    let currentMultiplier = 1; 
+
+    // Logika Pemilihan Alat
+    toolBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            toolBtns.forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            
+            // Update multiplier
+            currentMultiplier = parseFloat(e.currentTarget.getAttribute('data-multiplier'));
+            
+            // Update ikon kursor buatan
+            const newIcon = e.currentTarget.getAttribute('data-icon');
+            customCursor.innerText = newIcon;
+        });
+    });
 
     startBtn.addEventListener('click', () => {
         startScreen.style.display = 'none';
         gameContainer.style.display = 'block';
+        customCursor.style.display = 'block'; // Tampilkan kursor kustom
         
         bgm.volume = 0.3;
         bgm.play().catch(e => console.log("Audio diblokir browser", e));
     });
 
+    // --- LOGIKA KURSOR KUSTOM (MOUSE & TOUCH) ---
+    // Update posisi saat mouse bergerak (PC)
+    document.addEventListener('mousemove', (e) => {
+        customCursor.style.left = e.clientX + 'px';
+        customCursor.style.top = e.clientY + 'px';
+    });
+
+    // Update posisi saat jari menyentuh/mengusap layar (HP)
+    document.addEventListener('touchmove', (e) => {
+        customCursor.style.left = e.touches[0].clientX + 'px';
+        customCursor.style.top = e.touches[0].clientY + 'px';
+    });
+    // Jika perlu menampilkan alat tepat saat layar baru disentuh
+    document.addEventListener('touchstart', (e) => {
+        customCursor.style.left = e.touches[0].clientX + 'px';
+        customCursor.style.top = e.touches[0].clientY + 'px';
+    });
+
+    // --- LOGIKA GELITIK ---
     function applyTickle(part) {
-        intensity += 6; 
+        intensity += (6 * currentMultiplier); 
         if (intensity > maxIntensity) intensity = maxIntensity;
         activePart = part;
         updateGame();
@@ -176,7 +238,7 @@
         const partName = box.getAttribute('data-part');
         box.addEventListener('mousemove', () => applyTickle(partName));
         box.addEventListener('touchmove', (e) => {
-            e.preventDefault();
+            e.preventDefault(); // Mencegah scrolling layar saat digelitik
             applyTickle(partName);
         });
     });
