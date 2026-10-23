@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tickle Game Sederhana</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tickle Game</title>
     <style>
         body {
             display: flex;
@@ -15,7 +15,6 @@
             font-family: sans-serif;
             color: white;
             overflow: hidden;
-            /* Sembunyikan kursor bawaan di seluruh halaman */
             cursor: none; 
         }
         
@@ -28,7 +27,7 @@
             justify-content: center;
             align-items: center;
             z-index: 100;
-            cursor: auto; /* Kursor normal untuk tombol mulai */
+            cursor: auto; 
         }
         #start-btn {
             padding: 15px 30px;
@@ -45,116 +44,131 @@
             position: relative;
             width: 600px; 
             max-width: 100%;
+            height: 100vh; /* Memastikan container setinggi layar di HP */
             display: none; 
-            cursor: none; /* Pastikan area game tidak ada kursor bawaan */
+            cursor: none; 
+            align-items: center;
+            justify-content: center;
         }
+        
         #character-img {
             width: 100%;
+            max-height: 100vh;
+            object-fit: contain;
             display: block;
             pointer-events: none; 
         }
 
         .hitbox {
             position: absolute;
-            cursor: none; /* Sembunyikan kursor di area hitbox */
+            cursor: none; 
             z-index: 10;
         }
 
+        /* Hitbox disesuaikan berdasarkan persentase container */
         #hitbox-armpit { top: 42%; left: 76%; width: 12%; height: 12%; border-radius: 50%; }
         #hitbox-belly { top: 55%; left: 55%; width: 16%; height: 14%; border-radius: 50%; transform: rotate(-20deg); }
         #hitbox-feet { top: 82%; left: 10%; width: 18%; height: 15%; transform: rotate(-30deg); }
 
         #ui-panel {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: 10px;
+            left: 10px;
             background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
+            padding: 10px;
             border-radius: 8px;
             border: 1px solid #ff6b81;
             z-index: 20;
+            font-size: 14px;
         }
 
         #tool-panel {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            bottom: 20px; /* Dipindah ke bawah agar tidak menutupi badan */
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
+            padding: 10px;
             border-radius: 8px;
             border: 1px solid #ff6b81;
             z-index: 20;
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            flex-direction: row; /* Diubah menjadi horizontal */
+            gap: 8px;
             text-align: center;
+            width: max-content;
         }
+        
         .tool-btn {
             background: #333;
             color: white;
             border: 2px solid transparent;
-            padding: 10px;
+            padding: 8px 12px;
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 14px;
             transition: 0.2s;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 5px;
             cursor: pointer;
+            white-space: nowrap;
         }
         .tool-btn:hover { background: #444; }
         .tool-btn.active { border-color: #ff6b81; background: #552233; }
 
-        progress { width: 100%; height: 15px; margin-top: 5px; }
+        progress { width: 100%; height: 12px; margin-top: 5px; }
 
-        /* --- KURSOR KUSTOM (TOOLS) --- */
         #custom-cursor {
             position: fixed;
-            top: -100px; /* Sembunyikan di luar layar saat awal */
+            top: -100px; 
             left: -100px;
-            font-size: 45px; /* Ukuran ikon alat */
-            pointer-events: none; /* PENTING: Agar tidak menghalangi klik hitbox */
+            font-size: 40px; 
+            pointer-events: none; 
             z-index: 9999;
-            transform: translate(-20%, -20%); /* Menyesuaikan agar ujung ikon pas dengan titik sentuh */
+            transform: translate(-20%, -20%); 
             filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));
-            display: none; /* Sembunyikan sebelum game dimulai */
+            display: none; 
+        }
+
+        /* Penyesuaian khusus layar HP */
+        @media (max-width: 500px) {
+            .tool-btn { font-size: 12px; padding: 6px 8px; }
+            #custom-cursor { font-size: 35px; }
         }
     </style>
 </head>
 <body>
 
-<!-- Elemen Kursor Kustom yang akan mengikuti Mouse/Jari -->
 <div id="custom-cursor">✋</div>
 
 <div id="start-screen">
-    <h2>Siap Bermain?</h2>
-    <p>use your tools</p>
-    <button id="start-btn">Mulai Game</button>
+    <h2>Ready to Play?</h2>
+    <p>Select a tool and interact with sensitive areas!</p>
+    <button id="start-btn">Start Game</button>
 </div>
 
 <div id="game-container">
     <div id="ui-panel">
         <div>Target: <span id="status-text" style="color: #4cd137;">Safe</span></div>
-        <div style="margin-top: 10px; font-size: 12px;">Intensity:</div>
+        <div style="margin-top: 5px; font-size: 12px;">Intensity:</div>
         <progress id="tickle-meter" value="0" max="100"></progress>
     </div>
 
-    <!-- Tambahkan data-icon untuk mengganti visual kursor -->
     <div id="tool-panel">
-        <div style="font-size: 14px; margin-bottom: 5px; font-weight: bold;">Pilih Alat:</div>
-        <button class="tool-btn active" data-multiplier="1" data-icon="✋">✋ Tangan</button>
-        <button class="tool-btn" data-multiplier="1.5" data-icon="🪶">🪶 Bulu</button>
-        <button class="tool-btn" data-multiplier="2.5" data-icon="🖌️">🖌️ Kuas</button>
+        <button class="tool-btn active" data-multiplier="1" data-icon="✋">✋ Hand</button>
+        <button class="tool-btn" data-multiplier="1.5" data-icon="🪶">🪶 Feather</button>
+        <button class="tool-btn" data-multiplier="2.5" data-icon="🖌️">🖌️ Brush</button>
     </div>
 
     <img id="character-img" src="Base.jpeg" alt="Character">
 
-    <div class="hitbox" id="hitbox-armpit" data-part="armpit"></div>
-    <div class="hitbox" id="hitbox-belly" data-part="belly"></div>
-    <div class="hitbox" id="hitbox-feet" data-part="feet"></div>
+    <div class="hitbox" id="hitbox-armpit" data-part="Armpit"></div>
+    <div class="hitbox" id="hitbox-belly" data-part="Belly"></div>
+    <div class="hitbox" id="hitbox-feet" data-part="Feet"></div>
 </div>
 
 <audio id="bgm" src="bgm.mp3" loop></audio>
+<!-- File audio telah diperbarui sesuai permintaan -->
 <audio id="sfx-laugh" src="YTDown.com_YouTube_Media_YEAGR_mLLcE_Gelitikin-cewek-jepang-enak-banget_004_48k.m4a"></audio>
 
 <script>
@@ -172,11 +186,8 @@
     const sfxLaugh = document.getElementById('sfx-laugh');
 
     const imgNormal = 'Base.jpeg';
-    const images = {
-        armpit: 'Tickle.png',
-        belly: 'Tickle.png',
-        feet: 'Tickle.png'
-    };
+    // Menggunakan Tickle.png untuk semua area reaksi
+    const imageTickled = 'Tickle.png'; 
 
     let intensity = 0;
     const maxIntensity = 100;
@@ -184,16 +195,12 @@
     let activePart = null; 
     let currentMultiplier = 1; 
 
-    // Logika Pemilihan Alat
     toolBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             toolBtns.forEach(b => b.classList.remove('active'));
             e.currentTarget.classList.add('active');
             
-            // Update multiplier
             currentMultiplier = parseFloat(e.currentTarget.getAttribute('data-multiplier'));
-            
-            // Update ikon kursor buatan
             const newIcon = e.currentTarget.getAttribute('data-icon');
             customCursor.innerText = newIcon;
         });
@@ -201,32 +208,28 @@
 
     startBtn.addEventListener('click', () => {
         startScreen.style.display = 'none';
-        gameContainer.style.display = 'block';
-        customCursor.style.display = 'block'; // Tampilkan kursor kustom
+        gameContainer.style.display = 'flex';
+        customCursor.style.display = 'block'; 
         
         bgm.volume = 0.3;
-        bgm.play().catch(e => console.log("Audio diblokir browser", e));
+        bgm.play().catch(e => console.log("Audio blocked by browser", e));
     });
 
-    // --- LOGIKA KURSOR KUSTOM (MOUSE & TOUCH) ---
-    // Update posisi saat mouse bergerak (PC)
     document.addEventListener('mousemove', (e) => {
         customCursor.style.left = e.clientX + 'px';
         customCursor.style.top = e.clientY + 'px';
     });
 
-    // Update posisi saat jari menyentuh/mengusap layar (HP)
     document.addEventListener('touchmove', (e) => {
         customCursor.style.left = e.touches[0].clientX + 'px';
         customCursor.style.top = e.touches[0].clientY + 'px';
     });
-    // Jika perlu menampilkan alat tepat saat layar baru disentuh
+    
     document.addEventListener('touchstart', (e) => {
         customCursor.style.left = e.touches[0].clientX + 'px';
         customCursor.style.top = e.touches[0].clientY + 'px';
     });
 
-    // --- LOGIKA GELITIK ---
     function applyTickle(part) {
         intensity += (6 * currentMultiplier); 
         if (intensity > maxIntensity) intensity = maxIntensity;
@@ -238,7 +241,7 @@
         const partName = box.getAttribute('data-part');
         box.addEventListener('mousemove', () => applyTickle(partName));
         box.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // Mencegah scrolling layar saat digelitik
+            e.preventDefault(); 
             applyTickle(partName);
         });
     });
@@ -254,9 +257,9 @@
     function updateGame() {
         tickleMeter.value = intensity;
 
-        if (intensity >= threshold && imgElement.src.indexOf(images[activePart]) === -1) {
-            imgElement.src = images[activePart];
-            statusText.innerText = "Kegelian (" + activePart + ")!";
+        if (intensity >= threshold && imgElement.src.indexOf(imageTickled) === -1) {
+            imgElement.src = imageTickled;
+            statusText.innerText = `Tickled (${activePart})!`;
             statusText.style.color = "#ff6b81";
             
             if (sfxLaugh.paused) {
@@ -267,7 +270,7 @@
         } 
         else if (intensity < threshold && imgElement.src.indexOf(imgNormal) === -1) {
             imgElement.src = imgNormal;
-            statusText.innerText = "Aman";
+            statusText.innerText = "Safe";
             statusText.style.color = "#4cd137";
             
             sfxLaugh.pause();
